@@ -2,6 +2,7 @@ package scir
 
 import (
 	"encoding/json"
+	"strconv"
 )
 
 type Project struct {
@@ -17,7 +18,7 @@ type Target struct {
 	Variables      map[string]Variable `json:"variables"`
 	Lists          map[string]List     `json:"lists"`
 	Broadcasts     map[string]string   `json:"broadcasts,omitempty"`
-	Blocks         map[string]Block    `json:"blocks"`
+	Blocks         map[string]*Block   `json:"blocks"`
 	Comments       map[string]Comment  `json:"comments"`
 	CurrentCostume uint                `json:"currentCostume"`
 	Costumes       []Costume           `json:"costumes"`
@@ -37,6 +38,36 @@ type Target struct {
 	Direction     *float64 `json:"direction,omitempty"`
 	Draggable     *bool    `json:"draggable,omitempty"`
 	RotationStyle *string  `json:"rotationStyle,omitempty"`
+}
+
+func NewTarget(name string, costumes []Costume) Target {
+	visible := true
+	var x, y float64 = 0, 0
+	var size float64 = 100
+	var direction float64 = 90
+	dragable := false
+	rotationStyle := "all around"
+	return Target{
+		IsStage:        false,
+		Name:           name,
+		Variables:      make(map[string]Variable),
+		Lists:          make(map[string]List),
+		Broadcasts:     make(map[string]string),
+		Blocks:         make(map[string]*Block),
+		Comments:       make(map[string]Comment),
+		CurrentCostume: 0,
+		Costumes:       costumes,
+		Sounds:         make([]Sound, 0),
+		LayerOrder:     0,
+		Volume:         100,
+		Visible:        &visible,
+		X:              &x,
+		Y:              &y,
+		Size:           &size,
+		Direction:      &direction,
+		Draggable:      &dragable,
+		RotationStyle:  &rotationStyle,
+	}
 }
 
 type Costume struct {
@@ -59,17 +90,17 @@ type Sound struct {
 }
 
 type Block struct {
-	Opcode    string                        `json:"opcode"`
-	Fields    map[string]Field              `json:"fields"`
-	Inputs    map[string]MaybeShadowedInput `json:"inputs"`
-	Parent    *string                       `json:"parent"`
-	Next      *string                       `json:"next"`
-	Shadow    bool                          `json:"shadow"`
-	TopLevel  bool                          `json:"topLevel"`
-	X         *float64                      `json:"x,omitempty"`
-	Y         *float64                      `json:"y,omitempty"`
-	Comment   *string                       `json:"comment,omitempty"`
-	Mutations *Mutations                    `json:"mutation,omitempty"`
+	Opcode   string                        `json:"opcode"`
+	Fields   map[string]Field              `json:"fields"`
+	Inputs   map[string]MaybeShadowedInput `json:"inputs"`
+	Parent   *string                       `json:"parent"`
+	Next     *string                       `json:"next"`
+	Shadow   bool                          `json:"shadow"`
+	TopLevel bool                          `json:"topLevel"`
+	X        *float64                      `json:"x,omitempty"`
+	Y        *float64                      `json:"y,omitempty"`
+	Comment  *string                       `json:"comment,omitempty"`
+	Mutation *Mutation                     `json:"mutation,omitempty"`
 }
 
 type Input interface {
@@ -102,8 +133,8 @@ const (
 
 type MaybeShadowedInput struct {
 	Type          InputShadowType
-	ObscuredInput *Input
-	ShadowedInput *Input
+	ObscuredInput Input
+	ShadowedInput Input
 }
 
 func (s *MaybeShadowedInput) UnmarshalJSON(data []byte) error {
@@ -122,33 +153,33 @@ func (s *MaybeShadowedInput) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		s.ShadowedInput = &shadowedInput
+		s.ShadowedInput = shadowedInput
 	case 2:
 		s.Type = Nonshadow
 		obscuredInput, err := unmarshalInput(array[1])
 		if err != nil {
 			return err
 		}
-		s.ObscuredInput = &obscuredInput
+		s.ObscuredInput = obscuredInput
 	case 3:
 		s.Type = Shadowed
 		obscuredInput, err := unmarshalInput(array[1])
 		if err != nil {
 			return err
 		}
-		s.ObscuredInput = &obscuredInput
+		s.ObscuredInput = obscuredInput
 		shadowedInput, err := unmarshalInput(array[2])
 		if err != nil {
 			return err
 		}
-		s.ShadowedInput = &shadowedInput
+		s.ShadowedInput = shadowedInput
 	default:
 		return &json.UnmarshalTypeError{}
 	}
 	return nil
 }
 
-func (s *MaybeShadowedInput) MarshalJSON() ([]byte, error) {
+func (s MaybeShadowedInput) MarshalJSON() ([]byte, error) {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, '[')
 	switch s.Type {
@@ -189,12 +220,12 @@ func unmarshalInput(data json.RawMessage) (Input, error) {
 	if err := json.Unmarshal(data, &blockInput); err == nil {
 		return (*BlockInput)(&blockInput), nil
 	}
-	var array []interface{}
+	var array []any
 	if err := json.Unmarshal(data, &array); err != nil {
 		return nil, err
 	}
-	inputType, _ := array[0].(uint)
-	switch inputType {
+	inputType, _ := array[0].(float64)
+	switch uint(inputType) {
 	case 4:
 		fallthrough
 	case 5:
@@ -255,7 +286,7 @@ func (s *NumberalInput) InputType() InputType {
 	return s.Type
 }
 
-func (s *NumberalInput) MarshalJSON() ([]byte, error) {
+func (s NumberalInput) MarshalJSON() ([]byte, error) {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, '[')
 	inputType, err := json.Marshal(s.Type)
@@ -282,7 +313,7 @@ func (s *StringInput) InputType() InputType {
 	return s.Type
 }
 
-func (s *StringInput) MarshalJSON() ([]byte, error) {
+func (s StringInput) MarshalJSON() ([]byte, error) {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, '[')
 	inputType, err := json.Marshal(s.Type)
@@ -309,10 +340,10 @@ func (s *BroadcastInput) InputType() InputType {
 	return InputBroadcast
 }
 
-func (s *BroadcastInput) MarshalJSON() ([]byte, error) {
+func (s BroadcastInput) MarshalJSON() ([]byte, error) {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, '[')
-	bytes = append(bytes, string(InputBroadcast)...)
+	bytes = append(bytes, []byte(strconv.Itoa(int(InputBroadcast)))...)
 	bytes = append(bytes, ',')
 	value, err := json.Marshal(s.Value)
 	if err != nil {
@@ -341,7 +372,7 @@ func (s *VariableOrListInput) InputType() InputType {
 	return s.Type
 }
 
-func (s *VariableOrListInput) MarshalJSON() ([]byte, error) {
+func (s VariableOrListInput) MarshalJSON() ([]byte, error) {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, '[')
 	inputType, err := json.Marshal(s.Type)
@@ -391,7 +422,7 @@ type Field struct {
 }
 
 func (s *Field) UnmarshalJSON(data []byte) error {
-	var array []interface{}
+	var array []any
 	if err := json.Unmarshal(data, &array); err != nil {
 		return err
 	}
@@ -406,7 +437,7 @@ func (s *Field) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *Field) MarshalJSON() ([]byte, error) {
+func (s Field) MarshalJSON() ([]byte, error) {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, '[')
 	inputType, err := json.Marshal(s.Value)
@@ -426,18 +457,18 @@ func (s *Field) MarshalJSON() ([]byte, error) {
 	return bytes, nil
 }
 
-type Mutations struct {
-	TagName  string        `json:"tagName"`
-	Children []interface{} `json:"children"`
+type Mutation struct {
+	TagName  string `json:"tagName"`
+	Children []any  `json:"children"`
 	// for procedures_prototype and procedures_call only
 	ProcCode    *string `json:"proccode,omitempty"`
 	ArgumentIds *string `json:"argumentids,omitempty"`
-	Warp        *bool   `json:"warp,omitempty"`
+	Warp        *string `json:"warp,omitempty"`
 	// for procedures_prototype only
 	ArgumentNames    *string `json:"argumentnames,omitempty"`
 	ArgumentDefaults *string `json:"argumentdefaults,omitempty"`
 	// for control_stop only
-	HasNext *bool `json:"hasnext,omitempty"`
+	HasNext *string `json:"hasnext,omitempty"`
 }
 
 type Comment struct {
@@ -457,7 +488,7 @@ type Variable struct {
 }
 
 func (s *Variable) UnmarshalJSON(data []byte) error {
-	var array []interface{}
+	var array []any
 	if err := json.Unmarshal(data, &array); err != nil {
 		return err
 	}
@@ -472,7 +503,7 @@ func (s *Variable) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *Variable) MarshalJSON() ([]byte, error) {
+func (s Variable) MarshalJSON() ([]byte, error) {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, '[')
 	name, err := json.Marshal(s.Name)
@@ -499,7 +530,7 @@ type List struct {
 }
 
 func (s *List) UnmarshalJSON(data []byte) error {
-	var array []interface{}
+	var array []any
 	if err := json.Unmarshal(data, &array); err != nil {
 		return err
 	}
@@ -511,7 +542,7 @@ func (s *List) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *List) MarshalJSON() ([]byte, error) {
+func (s List) MarshalJSON() ([]byte, error) {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, '[')
 	name, err := json.Marshal(s.Name)
