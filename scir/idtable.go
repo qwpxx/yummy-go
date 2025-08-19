@@ -11,7 +11,19 @@ type IdTable struct {
 
 type IdUsage struct {
 	For            string
+	Uuid           string
 	RawDeclaration string
+}
+
+func (s *IdTable) UpdateId(id string, usage IdUsage) {
+	s.Ids[id] = usage
+}
+
+func (s *IdTable) LookupId(id string) *IdUsage {
+	if usage, ok := s.Ids[id]; ok {
+		return &usage
+	}
+	return nil
 }
 
 func NewIdTable() IdTable {

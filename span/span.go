@@ -1,14 +1,21 @@
 package span
 
 type Span struct {
-	From Position
-	To   Position
+	From   Position
+	To     Position
+	Source *string
 }
 
 type Position struct {
 	Index  uint
 	Lineno uint
-	Source *string
+}
+
+func (s *Span) String() string {
+	if s.Source == nil {
+		return "(no source)"
+	}
+	return (*s.Source)[s.From.Index:s.To.Index]
 }
 
 func (s *Span) Merge(t Span) Span {

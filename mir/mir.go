@@ -37,18 +37,24 @@ func (s *GlobalDeclaration) Type() DeclarationType {
 
 type FunctionDeclaration struct {
 	Name           string
-	Arguments      map[string]Argument
+	Arguments      []Argument
 	ReturnTypeView TypeView
 	Body           Block
 	ProcCode       string
 	ArgumentIds    string
 	Warp           bool
+	StackSize      uint
 	Span           span.Span
 }
 
 type Argument struct {
+	Name     string
 	TypeView TypeView
 	Span     span.Span
+}
+
+func (s *Argument) GetTypeView() TypeView {
+	return s.TypeView
 }
 
 func (s *FunctionDeclaration) Type() DeclarationType {
@@ -87,13 +93,32 @@ func (s *DeclareStatement) Type() StatementType {
 }
 
 type AssignStatement struct {
-	Declaration VariableDeclaration
-	Value       Expression
-	Span        span.Span
+	Acessor Acessor
+	Value   Expression
+	Span    span.Span
 }
 
 func (s *AssignStatement) Type() StatementType {
 	return AssignStatementType
+}
+
+type AcessorType uint
+
+const (
+	AcessorVariable AcessorType = iota
+)
+
+type Acessor interface {
+	Type() AcessorType
+}
+
+type VariableAcessor struct {
+	Declaration VariableDeclaration
+	Span        span.Span
+}
+
+func (s *VariableAcessor) Type() AcessorType {
+	return AcessorVariable
 }
 
 type ReturnStatement struct {
@@ -109,9 +134,10 @@ type ExpressionType uint
 
 const (
 	LiteralExpressionType ExpressionType = iota
-	VariableExpressionType
+	AcessorExpressionType
 	BinaryExpressionType
 	UnaryExpressionType
+	CallExpressionType
 )
 
 type Expression interface {
@@ -127,12 +153,12 @@ func (s *LiteralExpression) Type() ExpressionType {
 	return LiteralExpressionType
 }
 
-type VariableExpression struct {
-	Declaration VariableDeclaration
+type AcessorExpression struct {
+	Acessor Acessor
 }
 
-func (s *VariableExpression) Type() ExpressionType {
-	return VariableExpressionType
+func (s *AcessorExpression) Type() ExpressionType {
+	return AcessorExpressionType
 }
 
 type BinaryExpression struct {
@@ -153,4 +179,13 @@ type UnaryExpression struct {
 
 func (s *UnaryExpression) Type() ExpressionType {
 	return UnaryExpressionType
+}
+
+type CallExpression struct {
+	Function  *FunctionDeclaration
+	Arguments []Expression
+}
+
+func (s *CallExpression) Type() ExpressionType {
+	return CallExpressionType
 }

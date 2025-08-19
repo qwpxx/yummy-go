@@ -14,41 +14,55 @@ type Scir struct {
 	Assets        map[string][]byte
 	Ir            Project
 	IdTable       IdTable
-	editingTarget *Target
-	stageTarget   *Target
+	EditingTarget *Target
+	StageTarget   *Target
 }
 
 func (s *Scir) SetEditingTarget(name string) {
 	for _, target := range s.Ir.Targets {
 		if target.Name == name {
-			s.editingTarget = &target
+			s.EditingTarget = &target
 			return
 		}
 	}
 	newTarget := NewTarget(name, []Costume{
 		// use the first costume of stage by default
-		s.stageTarget.Costumes[0],
+		s.StageTarget.Costumes[0],
 	})
 	s.Ir.Targets = append(s.Ir.Targets, newTarget)
-	s.editingTarget = &newTarget
+	s.EditingTarget = &newTarget
 }
 
 func (s *Scir) InsertBlock(block *Block) string {
 	blockUuid := uuid.NewString()
-	s.editingTarget.Blocks[blockUuid] = block
+	s.EditingTarget.Blocks[blockUuid] = block
 	return blockUuid
 }
 
+func (s *Scir) InsertBlockWithUuid(uuid string, block *Block) {
+	s.EditingTarget.Blocks[uuid] = block
+}
+
 func (s *Scir) ConnectBlocks(blockUuid, nextBlockUuid string) {
-	s.editingTarget.Blocks[blockUuid].Next = &nextBlockUuid
-	s.editingTarget.Blocks[nextBlockUuid].Parent = &blockUuid
+	s.EditingTarget.Blocks[blockUuid].Next = &nextBlockUuid
+	s.EditingTarget.Blocks[nextBlockUuid].Parent = &blockUuid
+}
+
+func (s *Scir) CopyBlocks(blockUuids []string) []string {
+	newBlockUuids := make([]string, 0)
+	for _, uuid := range blockUuids {
+		block := s.EditingTarget.Blocks[uuid]
+		newBlockUuid := s.InsertBlock(block)
+		newBlockUuids = append(newBlockUuids, newBlockUuid)
+	}
+	return newBlockUuids
 }
 
 func (s *Scir) SetInput(blockUUid, input string, inputBlock *Block) {
 	inputUuid := s.InsertBlock(inputBlock)
 	blockInput := BlockInput(inputUuid)
 	inputBlock.Parent = &blockUUid
-	s.editingTarget.Blocks[blockUUid].Inputs[input] = MaybeShadowedInput{
+	s.EditingTarget.Blocks[blockUUid].Inputs[input] = MaybeShadowedInput{
 		Type:          Nonshadow,
 		ObscuredInput: &blockInput,
 	}
@@ -58,7 +72,7 @@ func (s *Scir) SetShadowInput(blockUUid, input string, inputBlock *Block) {
 	inputUuid := s.InsertBlock(inputBlock)
 	blockInput := BlockInput(inputUuid)
 	inputBlock.Parent = &blockUUid
-	s.editingTarget.Blocks[blockUUid].Inputs[input] = MaybeShadowedInput{
+	s.EditingTarget.Blocks[blockUUid].Inputs[input] = MaybeShadowedInput{
 		Type:          Shadow,
 		ShadowedInput: &blockInput,
 	}
@@ -110,8 +124,8 @@ func LoadSb3(path string, idTablePath *string) (Scir, error) {
 				Assets:        assets,
 				Ir:            *ir,
 				IdTable:       idTable,
-				editingTarget: nil,
-				stageTarget:   &target,
+				EditingTarget: nil,
+				StageTarget:   &target,
 			}, nil
 		}
 	}

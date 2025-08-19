@@ -1,6 +1,8 @@
 package mir
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
 
 type Slot struct {
 	Uuid  string
@@ -27,7 +29,7 @@ func NewSlotAllocator() SlotAllocator {
 }
 
 func (s *SlotAllocator) AllocN(n uint) []Slot {
-	slots := make([]Slot, n)
+	slots := make([]Slot, 0)
 	for slot := range s.freeSlots {
 		slots = append(slots, slot)
 		if uint(len(slots)) == n {
