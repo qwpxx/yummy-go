@@ -1,14 +1,17 @@
 package span
 
 type Span struct {
-	From   Position
-	To     Position
-	Source *string
+	From        Position
+	To          Position
+	SourceLines *[]string
+	Source      *string
+	Path        *string
 }
 
 type Position struct {
-	Index  uint
-	Lineno uint
+	Index     uint
+	LineIndex uint
+	Lineno    uint
 }
 
 func (s *Span) String() string {

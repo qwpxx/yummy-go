@@ -1,109 +1,40 @@
 package main
 
 import (
-	"fmt"
+	"strings"
 
-	"yummy-go.com/m/v2/mir"
-	"yummy-go.com/m/v2/omitter"
-	"yummy-go.com/m/v2/scir"
+	"yummy-go.com/m/v2/span"
 )
 
 func main() {
-	sb3file, err := scir.LoadSb3("./files/empty.sb3", nil)
-	if err != nil {
-		fmt.Println("load sb3 error:", err)
-		return
-	}
+	sourcePath := "main.yum"
+	sourceCode := `target Stage
 
-	allocator := mir.NewSlotAllocator()
+import "looks"
 
-	declaration := mir.DeclareStatement{
-		Name: "Var",
-		TypeView: mir.TypeView{
-			Type: &mir.ArrayType{
-				Inner: &mir.StringType{},
-				N:     2,
-			},
-			Slots: allocator.AllocN(2),
+func main() {
+    looks.Says(
+        "Hello, World!"
+    ) // Some comments
+}`
+	sourceLines := strings.Split(sourceCode, "\n")
+
+	theSpan := span.Span{
+		From: span.Position{
+			Index:     18,
+			LineIndex: 4,
+			Lineno:    5,
 		},
-	}
-	slots := allocator.AllocN(2)
-	arg1 := mir.Argument{
-		TypeView: mir.TypeView{
-			Type: &mir.ArrayType{
-				Inner: &mir.StringType{},
-				N:     2,
-			},
-			Offset: 0,
-			Slots:  slots,
+		To: span.Position{
+			Index:     59,
+			LineIndex: 5,
+			Lineno:    7,
 		},
-		Name: "world",
+		Source:      &sourceCode,
+		SourceLines: &sourceLines,
+		Path:        &sourcePath,
 	}
 
-	function := mir.FunctionDeclaration{
-		Name: "Hello",
-		Arguments: []mir.Argument{
-			arg1,
-		},
-		ReturnTypeView: mir.TypeView{
-			Type: &mir.ArrayType{
-				Inner: &mir.StringType{},
-				N:     2,
-			},
-			Offset: 0,
-			Slots:  allocator.AllocN(2),
-		},
-		ProcCode:    "Hello(world: %s %s )",
-		ArgumentIds: fmt.Sprintf("[\"%s\",\"%s\"]", slots[0].Uuid, slots[1].Uuid),
-		StackSize:   2,
-	}
-	function.Body = mir.Block{
-		Statements: []mir.Statement{
-			&declaration,
-			&mir.AssignStatement{
-				Acessor: &mir.VariableAcessor{
-					Declaration: &declaration,
-				},
-				Value: &mir.CallExpression{
-					Function: &function,
-					Arguments: []mir.Expression{
-						&mir.AcessorExpression{
-							Acessor: &mir.VariableAcessor{
-								Declaration: &declaration,
-							},
-						},
-					},
-				},
-			},
-			&mir.ReturnStatement{
-				Value: &mir.AcessorExpression{
-					Acessor: &mir.VariableAcessor{
-						Declaration: &declaration,
-					},
-				},
-			},
-		},
-	}
-
-	mir := mir.Program{
-		Declarations: []mir.Declaration{
-			&function,
-		},
-	}
-
-	omitter := omitter.New(&sb3file)
-	omitter.SetTarget("Stage")
-	if err := omitter.Omit(mir); err != nil {
-		fmt.Println("omit error:", err)
-		return
-	}
-
-	//projectjson, _ := json.Marshal(sb3file.Ir)
-	//fmt.Println("project.json:", string(projectjson))
-
-	if err := scir.ExportSb3("./files/output.sb3", "./files/output.sb3.json", sb3file); err != nil {
-		fmt.Println("export error:", err)
-		return
-	}
-	fmt.Println("successfully exported!")
+	span.Report(theSpan, span.Error, "`looks.Says` not in scope")
+	span.ReportNoSpan(span.Info, "did you mean `looks.Say`?")
 }
