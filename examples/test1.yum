@@ -1,3 +1,5 @@
+target Stage
+
 func Hello(world [2]string) [2]string {
 	myVar := Hello(world)
 	return myVar

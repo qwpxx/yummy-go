@@ -34,8 +34,11 @@ func (s *Span) Merge(t Span) Span {
 		to = t.To
 	}
 	return Span{
-		From: from,
-		To:   to,
+		From:        from,
+		To:          to,
+		SourceLines: s.SourceLines,
+		Source:      s.Source,
+		Path:        s.Path,
 	}
 }
 

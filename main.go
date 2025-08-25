@@ -1,8 +1,7 @@
 package main
 
 import (
-	"strings"
-
+	"yummy-go.com/m/v2/frontend"
 	"yummy-go.com/m/v2/span"
 )
 
@@ -10,31 +9,16 @@ func main() {
 	sourcePath := "main.yum"
 	sourceCode := `target Stage
 
-import "looks"
+func main() {}`
+	lexer := frontend.NewLexer(sourcePath, sourceCode)
+	parser := frontend.NewParser(lexer)
 
-func main() {
-    looks.Says(
-        "Hello, World!"
-    ) // Some comments
-}`
-	sourceLines := strings.Split(sourceCode, "\n")
-
-	theSpan := span.Span{
-		From: span.Position{
-			Index:     18,
-			LineIndex: 4,
-			Lineno:    5,
-		},
-		To: span.Position{
-			Index:     59,
-			LineIndex: 5,
-			Lineno:    7,
-		},
-		Source:      &sourceCode,
-		SourceLines: &sourceLines,
-		Path:        &sourcePath,
+	span.ResetStats()
+	ast, err := parser.ParseProgram()
+	if err != nil {
+		errorCount := span.GetStats(span.Error)
+		span.ReportNoSpan(span.Error, "%s: %s generated", sourcePath, span.Pluralize(errorCount, "error", "errors"))
+		return
 	}
-
-	span.Report(theSpan, span.Error, "`looks.Says` not in scope")
-	span.ReportNoSpan(span.Info, "did you mean `looks.Say`?")
+	ast.Display(0)
 }
